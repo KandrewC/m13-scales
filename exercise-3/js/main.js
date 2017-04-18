@@ -79,71 +79,111 @@ $(function() {
         // Define a yScale with d3.scaleLinear. Domain/rage will be set in the setScales function.
         var yScale = d3.scaleLinear();
 
+        // Write functions for defining scales
+        var setScales = function(data) {
+             // Get the unique values of states for the domain of your x scale
+            var states = data.map(function(d) {
+                return d.state;
+            });
 
-        // Get the unique values of states for the domain of your x scale
-        var states = data.map(function(d) {
-            return d.state;
-        });
+            // Set the domain/range of your xScale
+            xScale.range([0, drawWidth])
+                .padding(0.1)
+                .domain(states);
+    
+            // Get min/max values of the percent data (for your yScale domain)
+            var yMin = d3.min(data, function(d) {
+                return +d.percent;
+            });
 
-        // Set the domain/range of your xScale
-        xScale.range([0, drawWidth])
-            .padding(0.1)
-            .domain(states);
+            var yMax = d3.max(data, function(d) {
+                return +d.percent;
+            });
 
-        // Get min/max values of the percent data (for your yScale domain)
-        var yMin = d3.min(data, function(d) {
-            return +d.percent;
-        });
+            // Set the domain/range of your yScale
+            yScale.range([drawHeight, 0])
+                .domain([0, yMax]);
+        }
+        
+        var setAxis = function(data) {
+         // Set the scale of your xAxis object
+            xAxis.scale(xScale);
 
-        var yMax = d3.max(data, function(d) {
-            return +d.percent;
-        });
+            // Set the scale of your yAxis object
+            yAxis.scale(yScale);
 
-        // Set the domain/range of your yScale
-        yScale.range([drawHeight, 0])
-            .domain([0, yMax]);
+            // Render (call) your xAxis in your xAxisLabel
+            xAxisLabel.transition().duration(1000).call(xAxis);
 
-        // Set the scale of your xAxis object
-        xAxis.scale(xScale);
+            // Render (call) your yAxis in your yAxisLabel
+            yAxisLabel.transition().duration(1000).call(yAxis);
 
-        // Set the scale of your yAxis object
-        yAxis.scale(yScale);
-
-        // Render (call) your xAxis in your xAxisLabel
-        xAxisLabel.call(xAxis);
-
-        // Render (call) your yAxis in your yAxisLabel
-        yAxisLabel.call(yAxis);
-
-        // Update xAxisText and yAxisText labels
-        xAxisText.text('State');
-        yAxisText.text('Percent Drinking (' + sex + ', ' + type + ')');
-
-
+            // Update xAxisText and yAxisText labels
+            xAxisText.text('State');
+            yAxisText.text('Percent Drinking (' + sex + ', ' + type + ')');
+        }
+     
         // Add tip
         var tip = d3.tip().attr('class', 'd3-tip').html(function(d) {
             return d.state_name;
         });
         g.call(tip);
 
-        // Store the data-join in a function: make sure to set the scales and update the axes in your function.
-        // Select all rects and bind data
-        var bars = g.selectAll('rect').data(data);
 
-        // Use the .enter() method to get your entering elements, and assign initial positions
-        bars.enter().append('rect')
-            .attr('x', function(d) {
-                return xScale(d.state);
+        var dataJoin = function(data) {
+            // Store the data-join in a function: make sure to set the scales and update the axes in your function.
+            // Select all rects and bind data
+           
+            setScales(data);
+            setAxis();
+
+            var bars = g.selectAll('rect').data(data);
+
+            // Use the .enter() method to get your entering elements, and assign initial positions
+            bars.enter().append('rect')
+                .attr('x', function(d) {
+                    return xScale(d.state);
+                })
+                .attr('class', 'bar')
+                .on('mouseover', tip.show)
+                .on('mouseout', tip.hide)
+                .attr('width', xScale.bandwidth())
+                .attr('height', 0)
+                .attr('y', drawHeight)
+                .merge(bars)
+                .transition()
+                .delay(500)
+                .attr('x', function(d) {
+                    return xScale(d.state);
+                })
+                .attr('y', function(d) {
+                    return yScale(d.percent);
+                })
+                .attr('height', function(d) {
+                    return drawHeight - yScale(d.percent);
+                });    
+
+            bars.exit().remove();
+        }
+
+        var filterData = function() {
+            var filteredData = allData.filter(function(d) {
+                return d.type == type && d.sex == sex
             })
-            .attr('class', 'bar')
-            .on('mouseover', tip.show)
-            .on('mouseout', tip.hide)
-            .attr('width', xScale.bandwidth())
-            .attr('y', function(d) {
-                return yScale(d.percent);
-            })
-            .attr('height', function(d) {
-                return drawHeight - yScale(d.percent);
-            });
+            return filteredData;
+        }
+     
+        // dataJoin(data);
+        $('input').on('change', function() {
+            var input = $(this).val();
+            if ($(this).hasClass('sex')) {
+                sex = input;
+            } else {
+                type = input;
+            }
+            filteredData = filterData(data)
+            dataJoin(filteredData);
+        });
+        dataJoin(data);
     });
 });
